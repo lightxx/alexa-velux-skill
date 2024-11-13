@@ -56,7 +56,7 @@ const LaunchRequestHandler: RequestHandler = {
   },
   handle(handlerInput: HandlerInput): any {
     const speakOutput =
-      "Willkommen beim Velux Rolläden Skill! Du kannst mich bitten die Rolläden zu öffnen oder zu schließen. Was soll ich tun?";
+      "Willkommen beim Velux Rolläden Skill! Du kannst mich bitten die Rolläden zu öffnen oder zu schließen. Vor der ersten Verwendung sage bitte: Umgebung einrichten. Was soll ich tun?";
 
     return handlerInput.responseBuilder
       .speak(speakOutput)

@@ -8,7 +8,7 @@
     "prebuild": "rm -rf dist",
     "build": "npx tsc && mv dist/index.js ./index.mjs",
     "postbuild": "zip -r index.zip index.mjs node_modules && rm index.mjs",
-    "deploy": "aws lambda update-function-code --function-name alexa-velux-skill --zip-file \"fileb://index.zip\" --no-cli-pager"
+    "deploy": "npm run build && aws lambda update-function-code --function-name alexa-velux-skill --zip-file \"fileb://index.zip\" --no-cli-pager"
   },
   "keywords": [],
   "author": "Thomas Heuberger",
