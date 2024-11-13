@@ -5,7 +5,6 @@ import random from "random-string-alphanumeric-generator";
 import * as shared from "velux-alexa-integration-shared";
 
 let code: string | null = null;
-let spokenCode: string = "";
 
 const SetupEnvironmentIntentHandler: RequestHandler = {
   canHandle(handlerInput: HandlerInput): boolean {
@@ -16,17 +15,20 @@ const SetupEnvironmentIntentHandler: RequestHandler = {
   },
   async handle(handlerInput: HandlerInput): Promise<any> {
     try {
+      code = await shared.findKeyByValue(shared.state.storedUserId!);
+      let spokenCode: string = "";
+      
       if (!code) {
         code = random.randomAlphanumeric(6, "uppercase");
+      }
 
-        for (const c of code) {
-          spokenCode += `<say-as interpret-as='spell-out'>${c}</say-as><break strength='strong'/>`;
-        }
+      for (const c of code) {
+        spokenCode += `<say-as interpret-as='spell-out'>${c}</say-as><break strength='strong'/>`;
       }
 
       const speakOutput = `
         <speak>
-          <p>Willkommen! Bitte die Web App aufrufen und folgenden Token eingeben:</p>
+          <p>Willkommen! Bitte die Web App unter https://alexa.t-h.cc aufrufen und folgenden Token eingeben:</p>
           <break strength='strong'/>
           <p>${spokenCode}.</p>
           <break strength='strong'/>
@@ -49,7 +51,6 @@ const SetupEnvironmentIntentHandler: RequestHandler = {
   },
 };
 
-// Handler for "LaunchRequest" (when the skill is first opened)
 const LaunchRequestHandler: RequestHandler = {
   canHandle(handlerInput: HandlerInput): boolean {
     return handlerInput.requestEnvelope.request.type === "LaunchRequest";
