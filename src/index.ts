@@ -26,9 +26,13 @@ const SetupEnvironmentIntentHandler: RequestHandler = {
         spokenCode += `<say-as interpret-as='spell-out'>${c}</say-as><break strength='strong'/>`;
       }
 
+      const spokenURL = `
+        alexa<say-as interpret-as='characters'>.t-h.cc</say-as>.
+      `;
+
       const speakOutput = `
         <speak>
-          <p>Willkommen! Bitte die Web App unter https://alexa.t-h.cc aufrufen und folgenden Token eingeben:</p>
+          <p>Willkommen! Bitte die Web App unter ${spokenURL} aufrufen und folgenden Token eingeben:</p>
           <break strength='strong'/>
           <p>${spokenCode}.</p>
           <break strength='strong'/>
