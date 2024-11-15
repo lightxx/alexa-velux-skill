@@ -1,0 +1,197 @@
+{
+    "event": {
+      "header": {
+        "namespace": "Alexa.Discovery",
+        "name": "Discover.Response",
+        "payloadVersion": "3",
+        "messageId": "0a58ace0-e6ab-47de-b6af-b600b5ab8a7a"
+      },
+      "payload": {
+        "endpoints": [
+          {
+            "endpointId": "velux-endpoint-01",
+            "manufacturerName": "Velux",
+            "friendlyName": "Velux Roller Shutter",
+            "description": "A Velux roller shutter that supports open and close modes",
+            "displayCategories": [
+              "EXTERIOR_BLIND"
+            ],
+            "cookie": {},
+            "capabilities": [
+              {
+                "type": "AlexaInterface",
+                "interface": "Alexa",
+                "version": "3"
+              },
+              {
+                "type": "AlexaInterface",
+                "interface": "Alexa.ModeController",
+                "version": "3",
+                "instance": "Shutter.Position",
+                "capabilityResources": {
+                  "friendlyNames": [
+                    {
+                      "@type": "text",
+                      "value": {
+                        "text": "Shutter",
+                        "locale": "en-US"
+                      }
+                    },
+                    {
+                      "@type": "text",
+                      "value": {
+                        "text": "Rolladen",
+                        "locale": "de-DE"
+                      }
+                    }
+                  ]
+                },
+                "configuration": {
+                  "ordered": true,
+                  "supportedModes": [
+                    {
+                      "value": "open",
+                      "modeResources": {
+                        "friendlyNames": [
+                          {
+                            "@type": "text",
+                            "value": {
+                              "text": "open",
+                              "locale": "en-US"
+                            }
+                          },
+                          {
+                            "@type": "text",
+                            "value": {
+                              "text": "öffnen",
+                              "locale": "de-DE"
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "value": "close",
+                      "modeResources": {
+                        "friendlyNames": [
+                          {
+                            "@type": "text",
+                            "value": {
+                              "text": "close",
+                              "locale": "en-US"
+                            }
+                          },
+                          {
+                            "@type": "text",
+                            "value": {
+                              "text": "schließen",
+                              "locale": "de-DE"
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                "properties": {
+                  "supported": [
+                    {
+                      "name": "mode"
+                    }
+                  ],
+                  "proactivelyReported": false,
+                  "retrievable": true
+                }
+              },
+              {
+                "type": "AlexaInterface",
+                "interface": "Alexa.EndpointHealth",
+                "version": "3",
+                "properties": {
+                  "supported": [
+                    {
+                      "name": "connectivity"
+                    }
+                  ],
+                  "proactivelyReported": false,
+                  "retrievable": true
+                }
+              }
+            ]
+          },
+          {
+            "endpointId": "scene-close-all-shutters",
+            "manufacturerName": "Velux",
+            "friendlyName": "Close All Shutters",
+            "description": "A scene to close all Velux roller shutters",
+            "displayCategories": [
+              "SCENE_TRIGGER"
+            ],
+            "cookie": {},
+            "capabilities": [
+              {
+                "type": "AlexaInterface",
+                "interface": "Alexa.SceneController",
+                "version": "3",
+                "supportsDeactivation": false,
+                "capabilityResources": {
+                  "friendlyNames": [
+                    {
+                      "@type": "text",
+                      "value": {
+                        "text": "Close All Shutters",
+                        "locale": "en-US"
+                      }
+                    },
+                    {
+                      "@type": "text",
+                      "value": {
+                        "text": "Alle Rollläden schließen",
+                        "locale": "de-DE"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "endpointId": "scene-open-all-shutters",
+            "manufacturerName": "Velux",
+            "friendlyName": "Open All Shutters",
+            "description": "A scene to open all Velux roller shutters",
+            "displayCategories": [
+              "SCENE_TRIGGER"
+            ],
+            "cookie": {},
+            "capabilities": [
+              {
+                "type": "AlexaInterface",
+                "interface": "Alexa.SceneController",
+                "version": "3",
+                "supportsDeactivation": false,
+                "capabilityResources": {
+                  "friendlyNames": [
+                    {
+                      "@type": "text",
+                      "value": {
+                        "text": "Open All Shutters",
+                        "locale": "en-US"
+                      }
+                    },
+                    {
+                      "@type": "text",
+                      "value": {
+                        "text": "Alle Rollläden öffnen",
+                        "locale": "de-DE"
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
