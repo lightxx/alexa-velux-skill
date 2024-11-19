@@ -1,0 +1,217 @@
+{
+    "description": "A Discover.Response message for Alexa.Discovery",
+    "type": "object",
+    "required": [
+        "event"
+    ],
+    "additionalProperties": false,
+    "properties": {
+        "event": {
+            "type": "object",
+            "required": [
+                "header",
+                "payload"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "header": {
+                    "type": "object",
+                    "required": [
+                        "namespace",
+                        "name",
+                        "payloadVersion",
+                        "messageId"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "namespace": {
+                            "type": "string",
+                            "enum": [
+                                "Alexa.Discovery"
+                            ]
+                        },
+                        "name": {
+                            "type": "string",
+                            "enum": [
+                                "Discover.Response"
+                            ]
+                        },
+                        "payloadVersion": {
+                            "$ref": "#/definitions/common/model.PayloadVersion"
+                        },
+                        "messageId": {
+                            "$ref": "#/definitions/common/model.MessageId"
+                        },
+                        "correlationToken": {
+                            "$ref": "#/definitions/common/model.CorrelationToken"
+                        }
+                    }
+                },
+                "payload": {
+                    "type": "object",
+                    "required": [
+                        "endpoints"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "endpoints": {
+                            "type": "array",
+                            "uniqueItems": true,
+                            "maxItems": 300,
+                            "items": {
+                                "type": "object",
+                                "required": [
+                                    "endpointId",
+                                    "manufacturerName",
+                                    "friendlyName",
+                                    "description",
+                                    "displayCategories",
+                                    "capabilities"
+                                ],
+                                "properties": {
+                                    "endpointId": {
+                                        "type": "string",
+                                        "pattern": "^[a-zA-Z0-9_\\-=#;:?@&]*$",
+                                        "minLength": 1,
+                                        "maxLength": 256
+                                    },
+                                    "manufacturerName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                    },
+                                    "friendlyName": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 128
+                                    },
+                                    "displayCategories": {
+                                        "type": "array",
+                                        "minItems": 1,
+                                        "uniqueItems": true,
+                                        "items": {
+                                            "enum": [
+                                                "ACTIVITY_TRIGGER",
+                                                "CAMERA",
+                                                "COMPUTER",
+                                                "CONTACT_SENSOR",
+                                                "DOOR",
+                                                "DOORBELL",
+                                                "EXTERIOR_BLIND",
+                                                "FAN",
+                                                "GAME_CONSOLE",
+                                                "GARAGE_DOOR",
+                                                "INTERIOR_BLIND",
+                                                "LAPTOP",
+                                                "LIGHT",
+                                                "MICROWAVE",
+                                                "MOBILE_PHONE",
+                                                "MOTION_SENSOR",
+                                                "MUSIC_SYSTEM",
+                                                "NETWORK_HARDWARE",
+                                                "OTHER",
+                                                "OVEN",
+                                                "PHONE",
+                                                "SCENE_TRIGGER",
+                                                "SCREEN",
+                                                "SECURITY_PANEL",
+                                                "SMARTLOCK",
+                                                "SMARTPLUG",
+                                                "SPEAKER",
+                                                "STREAMING_DEVICE",
+                                                "SWITCH",
+                                                "TABLET",
+                                                "TEMPERATURE_SENSOR",
+                                                "THERMOSTAT",
+                                                "TV",
+                                                "WEARABLE"
+                                            ]
+                                        }
+                                    },
+                                    "cookie": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "capabilities": {
+                                        "$ref": "#/definitions/endpoint.capabilities"
+                                    },
+                                    "connections": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "required": [
+                                                "type"
+                                            ],
+                                            "properties": {
+                                                "type": {
+                                                    "minItems": 1,
+                                                    "maxItems": 1,
+                                                    "enum": [
+                                                        "TCP_IP",
+                                                        "ZIGBEE",
+                                                        "ZWAVE",
+                                                        "UNKNOWN"
+                                                    ]
+                                                },
+                                                "macAddress": {
+                                                    "type:": "string"
+                                                },
+                                                "homeId": {
+                                                    "type:": "string"
+                                                },
+                                                "nodeId": {
+                                                    "type:": "string"
+                                                },
+                                                "value": {
+                                                    "type:": "string"
+                                                }
+                                            },
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "additionalAttributes": {
+                                        "type": "object",
+                                        "properties": {
+                                            "manufacturer": {
+                                                "type": "string",
+                                                "maxLength": 256
+                                            },
+                                            "model": {
+                                                "type:": "string",
+                                                "maxLength": 256
+                                            },
+                                            "serialNumber": {
+                                                "type:": "string",
+                                                "maxLength": 256
+                                            },
+                                            "firmwareVersion": {
+                                                "type:": "string",
+                                                "maxLength": 256
+                                            },
+                                            "softwareVersion": {
+                                                "type:": "string",
+                                                "maxLength": 256
+                                            },
+                                            "customIdentifier": {
+                                                "type:": "string",
+                                                "maxLength": 256
+                                            }
+                                        },
+                                        "additionalProperties": false
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

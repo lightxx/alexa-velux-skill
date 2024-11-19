@@ -82,7 +82,7 @@ const OpenShuttersIntentHandler: RequestHandler = {
   },
   async handle(handlerInput: HandlerInput): Promise<any> {
     try {
-      await shared.postRequest("wake_up");
+      await shared.sendScenarioRequestWithRetry("wake_up");
       const speakOutput = "Die Rolläden werden geöffnet!";
 
       return handlerInput.responseBuilder.speak(speakOutput).getResponse();
@@ -108,7 +108,7 @@ const CloseShuttersIntentHandler: RequestHandler = {
   },
   async handle(handlerInput: HandlerInput): Promise<any> {
     try {
-      await shared.postRequest("bedtime");
+      await shared.sendScenarioRequestWithRetry("bedtime");
       const speakOutput = "Die Rolläden werden geschlossen!";
 
       return handlerInput.responseBuilder.speak(speakOutput).getResponse();
@@ -431,10 +431,10 @@ const SmartHomeHandler = async (event: any) => {
         const mode = event.directive.payload.mode;
 
         if (mode === "open") {
-          await shared.postRequest("wake_up"); // Open the shutters
+          await shared.sendScenarioRequestWithRetry("wake_up");
           return generateSmartHomeResponse("SUCCESS");
         } else if (mode === "close") {
-          await shared.postRequest("bedtime"); // Close the shutters
+          await shared.sendScenarioRequestWithRetry("bedtime");
           return generateSmartHomeResponse("SUCCESS");
         }
       }
