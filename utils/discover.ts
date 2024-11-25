@@ -1,67 +1,82 @@
 import { v4 as uuidv4 } from "uuid";
 import * as shared from "velux-alexa-integration-shared";
 import AWS from "aws-sdk";
-
-const userId =
-  "amzn1.ask.account.AMATPR2XCCYAAUCZ23A6YZRTYCACGRRMNRS7SQ6KNONYVYM26NWRQRLF3OCO2TFNGMYOMP2D7FUPKSNJS3Q7C2ALYQZYZTQBKFU4X7E6NLVDP4LLWANKEN23D6BWWYLTEUZ6KRPAPJ46VAQJ6YIMD6IQHLURKNG7L6JUJVUL4FNBW4DB66BM43PVW6LY7TKGC2JIRH2M2R3TVOQQOZ7A7Z7S4GRCOPEL3KFLBRBTB7ZA";
+import {
+  Description,
+  DiscoveryResponse,
+  DisplayCategory,
+  Endpoint,
+  Instance,
+  Interface,
+  Manufacturer,
+  Type,
+  TypeEnum,
+  Text,
+  Locale,
+  AssetID,
+  ValueEnum,
+  Name,
+} from "../src/types/discovery-response.mts";
+import { SkillType } from "velux-alexa-integration-shared/dist/interfaces/interfaces.mjs";
 
 AWS.config.update({ region: "eu-west-1" });
 
-async function getHomeInfo(): Promise<void> {
-  shared.state.storedUserId = userId;
-  await shared.warmUp();
+async function createDiscoveryResponse(): Promise<DiscoveryResponse> {
+  await shared.warmUpSmartHome("e6c6b2b5-108f-47c0-b337-eee873b2842d");
 
-  let endpoints: any = [];
+  console.log("State: " + JSON.stringify(shared.state, null, 2));
+
+  let endpoints: Array<Endpoint> = [];
 
   try {
     const homeInfo = await shared.getHomeInfoWithRetry();
-    
+
     homeInfo.data.body.homes[0].modules.forEach((module) => {
       if (!module.velux_type || module.velux_type !== "shutter") return;
-      
-      let bla = {
+
+      const endpoint: Endpoint = {
         endpointId: module.id,
-        manufacturerName: "Velux",
+        manufacturerName: Manufacturer.Velux,
         friendlyName: "Roller Shutter " + module.name,
-        description: "A Velux roller shutter",
-        displayCategories: ["EXTERIOR_BLIND"],
+        description: Description.AVeluxRollerShutter,
+        displayCategories: [DisplayCategory.ExteriorBlind],
         additionalAttributes: {
-          manufacturer: "Velux",
+          manufacturer: Manufacturer.Velux,
           model: module.type,
           customIdentifier: module.id,
         },
         cookie: {},
         capabilities: [
           {
-            type: "AlexaInterface",
-            interface: "Alexa",
+            type: TypeEnum.AlexaInterface,
+            interface: Interface.Alexa,
             version: "3",
           },
           {
-            type: "AlexaInterface",
-            interface: "Alexa.ModeController",
+            type: TypeEnum.AlexaInterface,
+            interface: Interface.AlexaModeController,
             version: "3",
-            instance: "Shutter.Position",
+            instance: Instance.ShutterPosition,
             capabilityResources: {
               friendlyNames: [
                 {
-                  "@type": "text",
+                  "@type": Type.Text,
                   value: {
-                    text: "Shutter",
-                    locale: "en-US",
+                    text: Text.Shutter,
+                    locale: Locale.EnUS,
                   },
                 },
                 {
-                  "@type": "text",
+                  "@type": Type.Text,
                   value: {
-                    text: "Rolladen",
-                    locale: "de-DE",
+                    text: Text.Rolladen,
+                    locale: Locale.DeDE,
                   },
                 },
                 {
-                  "@type": "asset",
+                  "@type": Type.Asset,
                   value: {
-                    assetId: "Alexa.DeviceName.Shade",
+                    assetId: AssetID.AlexaDeviceNameShade,
                   },
                 },
               ],
@@ -70,42 +85,42 @@ async function getHomeInfo(): Promise<void> {
               ordered: false,
               supportedModes: [
                 {
-                  value: "open",
+                  value: ValueEnum.Open,
                   modeResources: {
                     friendlyNames: [
                       {
-                        "@type": "text",
+                        "@type": Type.Text,
                         value: {
-                          text: "open",
-                          locale: "en-US",
+                          text: ValueEnum.Open,
+                          locale: Locale.EnUS,
                         },
                       },
                       {
-                        "@type": "text",
+                        "@type": Type.Text,
                         value: {
-                          text: "öffnen",
-                          locale: "de-DE",
+                          text: ValueEnum.Öffnen,
+                          locale: Locale.DeDE,
                         },
                       },
                     ],
                   },
                 },
                 {
-                  value: "close",
+                  value: ValueEnum.Close,
                   modeResources: {
                     friendlyNames: [
                       {
-                        "@type": "text",
+                        "@type": Type.Text,
                         value: {
-                          text: "close",
-                          locale: "en-US",
+                          text: ValueEnum.Close,
+                          locale: Locale.EnUS,
                         },
                       },
                       {
-                        "@type": "text",
+                        "@type": Type.Text,
                         value: {
-                          text: "schließen",
-                          locale: "de-DE",
+                          text: ValueEnum.Schließen,
+                          locale: Locale.DeDE,
                         },
                       },
                     ],
@@ -116,7 +131,7 @@ async function getHomeInfo(): Promise<void> {
             properties: {
               supported: [
                 {
-                  name: "mode",
+                  name: Name.Mode,
                 },
               ],
               proactivelyReported: false,
@@ -124,13 +139,13 @@ async function getHomeInfo(): Promise<void> {
             },
           },
           {
-            type: "AlexaInterface",
-            interface: "Alexa.EndpointHealth",
+            type: TypeEnum.AlexaInterface,
+            interface: Interface.AlexaEndpointHealth,
             version: "3",
             properties: {
               supported: [
                 {
-                  name: "connectivity",
+                  name: Name.Connectivity,
                 },
               ],
               proactivelyReported: false,
@@ -140,10 +155,10 @@ async function getHomeInfo(): Promise<void> {
         ],
       };
 
-      endpoints.push(bla);
+      endpoints.push(endpoint);
     });
 
-    const discoveryResponse = {
+    const discoveryResponse: DiscoveryResponse = {
       event: {
         header: {
           namespace: "Alexa.Discovery",
@@ -155,15 +170,15 @@ async function getHomeInfo(): Promise<void> {
           endpoints: endpoints,
         },
       },
-    };      
+    };
 
-    console.log("Discovery Reply: " + JSON.stringify(discoveryResponse, null, 2));
+    return discoveryResponse;
   } catch (error) {
     console.error("error: " + error);
+    throw error; 
   }
-
-
 }
 
-getHomeInfo();
-//console.log(JSON.stringify(discoveryResponse, null, 2));
+const homeInfo = await createDiscoveryResponse();
+
+console.log("homeInfo: " + JSON.stringify(homeInfo, null, 2));

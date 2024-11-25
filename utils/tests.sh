@@ -1,0 +1,1 @@
+aws lambda invoke --function-name alexa-velux-skill --payload file://payload.json --cli-binary-format raw-in-base64-out response.json

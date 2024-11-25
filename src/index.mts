@@ -4,6 +4,26 @@ import { SkillBuilders } from "ask-sdk";
 import random from "random-string-alphanumeric-generator";
 import * as shared from "velux-alexa-integration-shared";
 import { Callback, Context } from "aws-lambda";
+import { RequestEnvelope } from "ask-sdk-model";
+import { SmartHomeDirective } from "./types/SmartHomeDirective.mjs";
+import {
+  Description,
+  DisplayCategory,
+  Endpoint,
+  Instance,
+  Interface,
+  Locale,
+  Manufacturer,
+  Type,
+  TypeEnum,
+  Text,
+  AssetID,
+  ValueEnum,
+  Name,
+  DiscoveryResponse,
+} from "./types/discovery-response.mjs";
+
+import { v4 as uuidv4 } from "uuid";
 
 let code: string | null = null;
 
@@ -72,7 +92,6 @@ const LaunchRequestHandler: RequestHandler = {
   },
 };
 
-// Intent handler for opening the shutters
 const OpenShuttersIntentHandler: RequestHandler = {
   canHandle(handlerInput: HandlerInput): boolean {
     return (
@@ -152,29 +171,30 @@ const UserIdInterceptor = {
 };
 
 export const handler = async (
-  event: any,
+  event: RequestEnvelope | SmartHomeDirective,
   context: Context,
   callback: Callback
 ) => {
-  console.log("Request:", JSON.stringify(event, null, 2));
+  console.log("Request: ", JSON.stringify(event, null, 2));
 
-  // Check if the event is a Smart Home directive
-  if (event.directive) {
+  if (isSmartHomeDirective(event)) {
     try {
       const namespace = event.directive.header.namespace;
 
       if (namespace === "Alexa.Discovery") {
-        // Handle Alexa Discovery Directive
         console.log("Handling Alexa Discovery request...");
-        const discoveryResponse = await DeviceDiscoveryHandler();
-        return discoveryResponse; // Directly return the response to Alexa
-      } else {
-        // Handle Smart Home directives (e.g., SetMode, TurnOn, TurnOff)
+        const discoveryResponse = await DeviceDiscoveryHandler(event);
+        return discoveryResponse;
+      } else if (namespace === "Alexa" && event.directive.header.name === "ReportState") {
+        const reportStateResponse = await ReportStateHandler(event);
+        return reportStateResponse;
+      }
+      else {
         console.log(
           `Handling Smart Home directive for namespace: ${namespace}`
         );
         const smartHomeResponse = await SmartHomeHandler(event);
-        return smartHomeResponse; // Directly return the response to Alexa
+        return smartHomeResponse;
       }
     } catch (error) {
       console.error("Smart Home directive error:", error);
@@ -184,7 +204,6 @@ export const handler = async (
       };
     }
   } else {
-    // Otherwise, treat it as a Custom Skill request
     try {
       const customSkillHandler = SkillBuilders.custom()
         .addRequestInterceptors(UserIdInterceptor)
@@ -197,7 +216,6 @@ export const handler = async (
         .addErrorHandlers(SkillErrorHandler)
         .lambda();
 
-      // Wrap the custom skill handler in a promise
       const result = await new Promise((resolve, reject) => {
         customSkillHandler(event, context, (err: any, response: any) => {
           if (err) {
@@ -208,7 +226,7 @@ export const handler = async (
         });
       });
 
-      return result; // Return the response to Alexa
+      return result;
     } catch (error) {
       console.error("Custom Skill directive error:", error);
       return {
@@ -219,212 +237,172 @@ export const handler = async (
   }
 };
 
-const DeviceDiscoveryHandler = async () => {
-  const discoveryResponse = {
-    "event": {
-      "header": {
-        "namespace": "Alexa.Discovery",
-        "name": "Discover.Response",
-        "payloadVersion": "3",
-        "messageId": "0a58ace0-e6ab-47de-b6af-b600b5ab8a7a"
+function isSmartHomeDirective(event: any): event is SmartHomeDirective {
+  return (
+    event &&
+    event.directive &&
+    event.directive.header &&
+    event.directive.header.namespace !== undefined
+  );
+}
+
+const DeviceDiscoveryHandler = async (event: SmartHomeDirective) => {
+  const token = event.directive.payload!.scope!.token;
+
+  await shared.warmUpSmartHome(token);
+
+  let endpoints: Array<Endpoint> = [];
+
+  const homeInfo = await shared.getHomeInfoWithRetry();
+
+  homeInfo.data.body.homes[0].modules.forEach((module) => {
+    if (!module.velux_type || module.velux_type !== "shutter") return;
+
+    const endpoint: Endpoint = {
+      endpointId: module.id,
+      manufacturerName: Manufacturer.Velux,
+      friendlyName: "Roller Shutter " + module.name,
+      description: Description.AVeluxRollerShutter,
+      displayCategories: [DisplayCategory.ExteriorBlind],
+      additionalAttributes: {
+        manufacturer: Manufacturer.Velux,
+        model: module.type,
+        customIdentifier: module.id,
       },
-      "payload": {
-        "endpoints": [
-          {
-            "endpointId": "velux-endpoint-01",
-            "manufacturerName": "Velux",
-            "friendlyName": "Velux Roller Shutter",
-            "description": "A Velux roller shutter that supports open and close modes",
-            "displayCategories": [
-              "EXTERIOR_BLIND"
-            ],
-            "cookie": {},
-            "capabilities": [
+      cookie: {},
+      capabilities: [
+        {
+          type: TypeEnum.AlexaInterface,
+          interface: Interface.Alexa,
+          version: "3",
+        },
+        {
+          type: TypeEnum.AlexaInterface,
+          interface: Interface.AlexaModeController,
+          version: "3",
+          instance: Instance.ShutterPosition,
+          capabilityResources: {
+            friendlyNames: [
               {
-                "type": "AlexaInterface",
-                "interface": "Alexa",
-                "version": "3"
+                "@type": Type.Text,
+                value: {
+                  text: Text.Shutter,
+                  locale: Locale.EnUS,
+                },
               },
               {
-                "type": "AlexaInterface",
-                "interface": "Alexa.ModeController",
-                "version": "3",
-                "instance": "Shutter.Position",
-                "capabilityResources": {
-                  "friendlyNames": [
-                    {
-                      "@type": "text",
-                      "value": {
-                        "text": "Shutter",
-                        "locale": "en-US"
-                      }
-                    },
-                    {
-                      "@type": "text",
-                      "value": {
-                        "text": "Rolladen",
-                        "locale": "de-DE"
-                      }
-                    }
-                  ]
+                "@type": Type.Text,
+                value: {
+                  text: Text.Rolladen,
+                  locale: Locale.DeDE,
                 },
-                "configuration": {
-                  "ordered": true,
-                  "supportedModes": [
-                    {
-                      "value": "open",
-                      "modeResources": {
-                        "friendlyNames": [
-                          {
-                            "@type": "text",
-                            "value": {
-                              "text": "open",
-                              "locale": "en-US"
-                            }
-                          },
-                          {
-                            "@type": "text",
-                            "value": {
-                              "text": "öffnen",
-                              "locale": "de-DE"
-                            }
-                          }
-                        ]
-                      }
-                    },
-                    {
-                      "value": "close",
-                      "modeResources": {
-                        "friendlyNames": [
-                          {
-                            "@type": "text",
-                            "value": {
-                              "text": "close",
-                              "locale": "en-US"
-                            }
-                          },
-                          {
-                            "@type": "text",
-                            "value": {
-                              "text": "schließen",
-                              "locale": "de-DE"
-                            }
-                          }
-                        ]
-                      }
-                    }
-                  ]
-                },
-                "properties": {
-                  "supported": [
-                    {
-                      "name": "mode"
-                    }
-                  ],
-                  "proactivelyReported": false,
-                  "retrievable": true
-                }
               },
               {
-                "type": "AlexaInterface",
-                "interface": "Alexa.EndpointHealth",
-                "version": "3",
-                "properties": {
-                  "supported": [
+                "@type": Type.Asset,
+                value: {
+                  assetId: AssetID.AlexaDeviceNameShade,
+                },
+              },
+            ],
+          },
+          configuration: {
+            ordered: false,
+            supportedModes: [
+              {
+                value: ValueEnum.Open,
+                modeResources: {
+                  friendlyNames: [
                     {
-                      "name": "connectivity"
-                    }
+                      "@type": Type.Text,
+                      value: {
+                        text: ValueEnum.Open,
+                        locale: Locale.EnUS,
+                      },
+                    },
+                    {
+                      "@type": Type.Text,
+                      value: {
+                        text: ValueEnum.Öffnen,
+                        locale: Locale.DeDE,
+                      },
+                    },
                   ],
-                  "proactivelyReported": false,
-                  "retrievable": true
-                }
-              }
-            ]
-          },
-          {
-            "endpointId": "scene-close-all-shutters",
-            "manufacturerName": "Velux",
-            "friendlyName": "Close All Shutters",
-            "description": "A scene to close all Velux roller shutters",
-            "displayCategories": [
-              "SCENE_TRIGGER"
-            ],
-            "cookie": {},
-            "capabilities": [
+                },
+              },
               {
-                "type": "AlexaInterface",
-                "interface": "Alexa.SceneController",
-                "version": "3",
-                "supportsDeactivation": false,
-                "capabilityResources": {
-                  "friendlyNames": [
+                value: ValueEnum.Close,
+                modeResources: {
+                  friendlyNames: [
                     {
-                      "@type": "text",
-                      "value": {
-                        "text": "Close All Shutters",
-                        "locale": "en-US"
-                      }
+                      "@type": Type.Text,
+                      value: {
+                        text: ValueEnum.Close,
+                        locale: Locale.EnUS,
+                      },
                     },
                     {
-                      "@type": "text",
-                      "value": {
-                        "text": "Alle Rollläden schließen",
-                        "locale": "de-DE"
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "endpointId": "scene-open-all-shutters",
-            "manufacturerName": "Velux",
-            "friendlyName": "Open All Shutters",
-            "description": "A scene to open all Velux roller shutters",
-            "displayCategories": [
-              "SCENE_TRIGGER"
-            ],
-            "cookie": {},
-            "capabilities": [
-              {
-                "type": "AlexaInterface",
-                "interface": "Alexa.SceneController",
-                "version": "3",
-                "supportsDeactivation": false,
-                "capabilityResources": {
-                  "friendlyNames": [
-                    {
-                      "@type": "text",
-                      "value": {
-                        "text": "Open All Shutters",
-                        "locale": "en-US"
-                      }
+                      "@type": Type.Text,
+                      value: {
+                        text: ValueEnum.Schließen,
+                        locale: Locale.DeDE,
+                      },
                     },
-                    {
-                      "@type": "text",
-                      "value": {
-                        "text": "Alle Rollläden öffnen",
-                        "locale": "de-DE"
-                      }
-                    }
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      }
-    }
+                  ],
+                },
+              },
+            ],
+          },
+          properties: {
+            supported: [
+              {
+                name: Name.Mode,
+              },
+            ],
+            proactivelyReported: false,
+            retrievable: true,
+          },
+        },
+        {
+          type: TypeEnum.AlexaInterface,
+          interface: Interface.AlexaEndpointHealth,
+          version: "3",
+          properties: {
+            supported: [
+              {
+                name: Name.Connectivity,
+              },
+            ],
+            proactivelyReported: false,
+            retrievable: true,
+          },
+        },
+      ],
+    };
+
+    endpoints.push(endpoint);
+  });
+
+  const discoveryResponse: DiscoveryResponse = {
+    event: {
+      header: {
+        namespace: "Alexa.Discovery",
+        name: "Discover.Response",
+        payloadVersion: "3",
+        messageId: uuidv4(),
+      },
+      payload: {
+        endpoints: endpoints,
+      },
+    },
   };
 
   return discoveryResponse;
 };
 
-const SmartHomeHandler = async (event: any) => {
+const SmartHomeHandler = async (event: SmartHomeDirective) => {
   if (event.directive.header.namespace === "Alexa.ModeController") {
     const directiveName = event.directive.header.name;
-    const endpointId = event.directive.endpoint.endpointId;
+    const endpointId = event.directive.endpoint!.endpointId;
 
     if (endpointId === "velux-shutter") {
       if (directiveName === "SetMode") {
@@ -460,3 +438,12 @@ const generateSmartHomeResponse = (status: string) => {
     },
   };
 };
+
+async function ReportStateHandler(event: SmartHomeDirective) {
+  const token = event.directive.endpoint?.scope.token!;
+
+  await shared.warmUpSmartHome(token);
+
+  const homeInfo = await shared.getHomeStatusWithRetry();
+}
+

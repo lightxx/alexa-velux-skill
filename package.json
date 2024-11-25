@@ -6,9 +6,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "prebuild": "rm -rf dist",
-    "build": "npx tsc && mv dist/index.js ./index.mjs",
-    "postbuild": "zip -r index.zip index.mjs node_modules && rm index.mjs",
+    "prebuild": "rm -rf index.zip && rm -rf dist",
+    "build": "npx tsc",
+    "postbuild": "cd dist && zip -r ../index.zip * && cd .. && zip -r index.zip node_modules",
     "deploy": "npm run build && aws lambda update-function-code --function-name alexa-velux-skill --zip-file \"fileb://index.zip\" --no-cli-pager"
   },
   "keywords": [],
@@ -24,6 +24,7 @@
   "dependencies": {
     "ask-sdk": "^2.14.0",
     "ask-sdk-core": "^2.14.0",
+    "ask-sdk-model": "^1.86.0",
     "random-string-alphanumeric-generator": "^0.12.2",
     "velux-alexa-integration-shared": "^1.0.2"
   }
