@@ -7,19 +7,7 @@ import { Callback, Context } from "aws-lambda";
 import { RequestEnvelope } from "ask-sdk-model";
 import { SmartHomeDirective } from "./types/SmartHomeDirective.mjs";
 import {
-  Description,
-  DisplayCategory,
-  Endpoint,
-  Instance,
-  Interface,
-  Locale,
-  Manufacturer,
-  Type,
-  TypeEnum,
-  Text,
-  AssetID,
-  ValueEnum,
-  Name,
+  Endpoint,  
   DiscoveryResponse,
 } from "./types/discovery-response.mjs";
 
@@ -82,8 +70,14 @@ const LaunchRequestHandler: RequestHandler = {
     return handlerInput.requestEnvelope.request.type === "LaunchRequest";
   },
   handle(handlerInput: HandlerInput): any {
-    const speakOutput =
-      "Willkommen beim Velux Rolläden Skill! Du kannst mich bitten die Rolläden zu öffnen oder zu schließen. Vor der ersten Verwendung sage bitte: Umgebung einrichten. Was soll ich tun?";
+    let speakOutput = "Willkommen beim Velux Rolläden Skill!";
+
+    if (!shared.state.userData) {
+      speakOutput +=
+        " Du kannst mich bitten die Rolläden zu öffnen oder zu schließen. Vor der ersten Verwendung sage bitte: Umgebung einrichten.";
+    }
+
+    speakOutput += " Was soll ich tun?";
 
     return handlerInput.responseBuilder
       .speak(speakOutput)
@@ -117,7 +111,6 @@ const OpenShuttersIntentHandler: RequestHandler = {
   },
 };
 
-// Intent handler for closing the shutters
 const CloseShuttersIntentHandler: RequestHandler = {
   canHandle(handlerInput: HandlerInput): boolean {
     return (
@@ -143,7 +136,6 @@ const CloseShuttersIntentHandler: RequestHandler = {
   },
 };
 
-// Error handler for any unhandled errors
 const SkillErrorHandler: ErrorHandler = {
   canHandle(): boolean {
     return true;
@@ -158,7 +150,6 @@ const SkillErrorHandler: ErrorHandler = {
   },
 };
 
-// Interceptor for managing userId and warming up shared data
 const UserIdInterceptor = {
   async process(handlerInput: HandlerInput): Promise<void> {
     const userId = handlerInput.requestEnvelope.session?.user?.userId;
@@ -185,11 +176,13 @@ export const handler = async (
         console.log("Handling Alexa Discovery request...");
         const discoveryResponse = await DeviceDiscoveryHandler(event);
         return discoveryResponse;
-      } else if (namespace === "Alexa" && event.directive.header.name === "ReportState") {
+      } else if (
+        namespace === "Alexa" &&
+        event.directive.header.name === "ReportState"
+      ) {
         const reportStateResponse = await ReportStateHandler(event);
         return reportStateResponse;
-      }
-      else {
+      } else {
         console.log(
           `Handling Smart Home directive for namespace: ${namespace}`
         );
@@ -258,127 +251,156 @@ const DeviceDiscoveryHandler = async (event: SmartHomeDirective) => {
   homeInfo.data.body.homes[0].modules.forEach((module) => {
     if (!module.velux_type || module.velux_type !== "shutter") return;
 
+    const capabilityResources = {
+      friendlyNames: [
+        {
+          "@type": "asset",
+          value: {
+            assetId: "Alexa.Setting.Opening",
+          },
+        },
+        {
+          "@type": "text",
+          value: {
+            text: "Rolladen",
+            locale: "de-DE",
+          },
+        },
+        {
+          "@type": "asset",
+          value: {
+            assetId: "Alexa.DeviceName.Shade",
+          },
+        },
+      ],
+    };
+    
+    const rangeControllerCapability = {
+      type: "AlexaInterface",
+      interface: "Alexa.RangeController",
+      instance: "Blind.Lift",
+      version: "3",
+      properties: {
+        supported: [
+          {
+            name: "rangeValue",
+          },
+        ],
+        proactivelyReported: false,
+        retrievable: true,
+      },
+      capabilityResources: capabilityResources,
+      configuration: {
+        supportedRange: {
+          minimumValue: 0,
+          maximumValue: 100,
+          precision: 10,
+        },
+        unitOfMeasure: "Alexa.Unit.Percent",
+      },
+      semantics: {
+        actionMappings: [
+          {
+            "@type": "ActionsToDirective",
+            actions: ["Alexa.Actions.Close"],
+            directive: {
+              name: "SetRangeValue",
+              payload: {
+                rangeValue: 0,
+              },
+            },
+          },
+          {
+            "@type": "ActionsToDirective",
+            actions: ["Alexa.Actions.Open"],
+            directive: {
+              name: "SetRangeValue",
+              payload: {
+                rangeValue: 100,
+              },
+            },
+          },
+          {
+            "@type": "ActionsToDirective",
+            actions: ["Alexa.Actions.Lower"],
+            directive: {
+              name: "AdjustRangeValue",
+              payload: {
+                rangeValueDelta: -10,
+                rangeValueDeltaDefault: false,
+              },
+            },
+          },
+          {
+            "@type": "ActionsToDirective",
+            actions: ["Alexa.Actions.Raise"],
+            directive: {
+              name: "AdjustRangeValue",
+              payload: {
+                rangeValueDelta: 10,
+                rangeValueDeltaDefault: false,
+              },
+            },
+          },
+        ],
+        stateMappings: [
+          {
+            "@type": "StatesToValue",
+            states: ["Alexa.States.Closed"],
+            value: 0,
+          },
+          {
+            "@type": "StatesToRange",
+            states: ["Alexa.States.Open"],
+            range: {
+              minimumValue: 10,
+              maximumValue: 100,
+            },
+          },
+        ],
+      },
+    };
+    
+    const endpointHealthCapability = {
+      type: "AlexaInterface",
+      interface: "Alexa.EndpointHealth",
+      version: "3",
+      properties: {
+        supported: [
+          {
+            name: "connectivity",
+          },
+        ],
+        proactivelyReported: false,
+        retrievable: true,
+      },
+    };
+    
+    const alexaCapability = {
+      type: "AlexaInterface",
+      interface: "Alexa",
+      version: "3",
+    };
+    
     const endpoint: Endpoint = {
       endpointId: module.id,
-      manufacturerName: Manufacturer.Velux,
+      manufacturerName: "Velux",
       friendlyName: "Roller Shutter " + module.name,
-      description: Description.AVeluxRollerShutter,
-      displayCategories: [DisplayCategory.ExteriorBlind],
+      description: "A Velux Roller Shutter",
+      displayCategories: ["EXTERIOR_BLIND"],
       additionalAttributes: {
-        manufacturer: Manufacturer.Velux,
+        manufacturer: "Velux",
         model: module.type,
         customIdentifier: module.id,
       },
       cookie: {},
       capabilities: [
-        {
-          type: TypeEnum.AlexaInterface,
-          interface: Interface.Alexa,
-          version: "3",
-        },
-        {
-          type: TypeEnum.AlexaInterface,
-          interface: Interface.AlexaModeController,
-          version: "3",
-          instance: Instance.ShutterPosition,
-          capabilityResources: {
-            friendlyNames: [
-              {
-                "@type": Type.Text,
-                value: {
-                  text: Text.Shutter,
-                  locale: Locale.EnUS,
-                },
-              },
-              {
-                "@type": Type.Text,
-                value: {
-                  text: Text.Rolladen,
-                  locale: Locale.DeDE,
-                },
-              },
-              {
-                "@type": Type.Asset,
-                value: {
-                  assetId: AssetID.AlexaDeviceNameShade,
-                },
-              },
-            ],
-          },
-          configuration: {
-            ordered: false,
-            supportedModes: [
-              {
-                value: ValueEnum.Open,
-                modeResources: {
-                  friendlyNames: [
-                    {
-                      "@type": Type.Text,
-                      value: {
-                        text: ValueEnum.Open,
-                        locale: Locale.EnUS,
-                      },
-                    },
-                    {
-                      "@type": Type.Text,
-                      value: {
-                        text: ValueEnum.Öffnen,
-                        locale: Locale.DeDE,
-                      },
-                    },
-                  ],
-                },
-              },
-              {
-                value: ValueEnum.Close,
-                modeResources: {
-                  friendlyNames: [
-                    {
-                      "@type": Type.Text,
-                      value: {
-                        text: ValueEnum.Close,
-                        locale: Locale.EnUS,
-                      },
-                    },
-                    {
-                      "@type": Type.Text,
-                      value: {
-                        text: ValueEnum.Schließen,
-                        locale: Locale.DeDE,
-                      },
-                    },
-                  ],
-                },
-              },
-            ],
-          },
-          properties: {
-            supported: [
-              {
-                name: Name.Mode,
-              },
-            ],
-            proactivelyReported: false,
-            retrievable: true,
-          },
-        },
-        {
-          type: TypeEnum.AlexaInterface,
-          interface: Interface.AlexaEndpointHealth,
-          version: "3",
-          properties: {
-            supported: [
-              {
-                name: Name.Connectivity,
-              },
-            ],
-            proactivelyReported: false,
-            retrievable: true,
-          },
-        },
+        rangeControllerCapability,
+        endpointHealthCapability,
+        alexaCapability,
       ],
     };
-
+    
     endpoints.push(endpoint);
   });
 
@@ -439,11 +461,12 @@ const generateSmartHomeResponse = (status: string) => {
   };
 };
 
-async function ReportStateHandler(event: SmartHomeDirective) {
+const ReportStateHandler = async (event: SmartHomeDirective) => {
   const token = event.directive.endpoint?.scope.token!;
 
   await shared.warmUpSmartHome(token);
 
   const homeInfo = await shared.getHomeStatusWithRetry();
-}
 
+  return JSON.stringify(homeInfo.data, null, 2);
+}
