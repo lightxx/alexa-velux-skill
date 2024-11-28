@@ -24,7 +24,7 @@ export interface Endpoint {
     description:          string;
     friendlyName:         string;
     displayCategories:    string[];
-    additionalAttributes: AdditionalAttributes;
+    additionalAttributes?: AdditionalAttributes;
     cookie:               Cookie;
     capabilities:         Capability[];
 }

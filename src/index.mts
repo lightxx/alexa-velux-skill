@@ -6,12 +6,10 @@ import * as shared from "velux-alexa-integration-shared";
 import { Callback, Context } from "aws-lambda";
 import { RequestEnvelope } from "ask-sdk-model";
 import { SmartHomeDirective } from "./types/SmartHomeDirective.mjs";
-import {
-  Endpoint,  
-  DiscoveryResponse,
-} from "./types/discovery-response.mjs";
+import { Endpoint, DiscoveryResponse } from "./types/discovery-response.mjs";
 
 import { v4 as uuidv4 } from "uuid";
+import { StateReport } from "./types/statereport-response.mjs";
 
 let code: string | null = null;
 
@@ -248,145 +246,152 @@ const DeviceDiscoveryHandler = async (event: SmartHomeDirective) => {
 
   const homeInfo = await shared.getHomeInfoWithRetry();
 
-  homeInfo.data.body.homes[0].modules.forEach((module) => {
-    if (!module.velux_type || module.velux_type !== "shutter") return;
+  const alexaCapability = {
+    type: "AlexaInterface",
+    interface: "Alexa",
+    version: "3",
+  };
 
-    const capabilityResources = {
-      friendlyNames: [
+  const endpointHealthCapability = {
+    type: "AlexaInterface",
+    interface: "Alexa.EndpointHealth",
+    version: "3",
+    properties: {
+      supported: [
         {
-          "@type": "asset",
-          value: {
-            assetId: "Alexa.Setting.Opening",
+          name: "connectivity",
+        },
+      ],
+      proactivelyReported: false,
+      retrievable: true,
+    },
+  };
+
+  const capabilityResources = {
+    friendlyNames: [
+      {
+        "@type": "asset",
+        value: {
+          assetId: "Alexa.Setting.Opening",
+        },
+      },
+      {
+        "@type": "text",
+        value: {
+          text: "Rolladen",
+          locale: "de-DE",
+        },
+      },
+      {
+        "@type": "asset",
+        value: {
+          assetId: "Alexa.DeviceName.Shade",
+        },
+      },
+    ],
+  };
+
+  const rangeControllerCapability = {
+    type: "AlexaInterface",
+    interface: "Alexa.RangeController",
+    instance: "Blind.Lift",
+    version: "3",
+    properties: {
+      supported: [
+        {
+          name: "rangeValue",
+        },
+      ],
+      proactivelyReported: false,
+      retrievable: true,
+    },
+    capabilityResources: capabilityResources,
+    configuration: {
+      supportedRange: {
+        minimumValue: 0,
+        maximumValue: 100,
+        precision: 10,
+      },
+      unitOfMeasure: "Alexa.Unit.Percent",
+    },
+    semantics: {
+      actionMappings: [
+        {
+          "@type": "ActionsToDirective",
+          actions: ["Alexa.Actions.Close"],
+          directive: {
+            name: "SetRangeValue",
+            payload: {
+              rangeValue: 0,
+            },
           },
         },
         {
-          "@type": "text",
-          value: {
-            text: "Rolladen",
-            locale: "de-DE",
+          "@type": "ActionsToDirective",
+          actions: ["Alexa.Actions.Open"],
+          directive: {
+            name: "SetRangeValue",
+            payload: {
+              rangeValue: 100,
+            },
           },
         },
         {
-          "@type": "asset",
-          value: {
-            assetId: "Alexa.DeviceName.Shade",
+          "@type": "ActionsToDirective",
+          actions: ["Alexa.Actions.Lower"],
+          directive: {
+            name: "AdjustRangeValue",
+            payload: {
+              rangeValueDelta: -10,
+              rangeValueDeltaDefault: false,
+            },
+          },
+        },
+        {
+          "@type": "ActionsToDirective",
+          actions: ["Alexa.Actions.Raise"],
+          directive: {
+            name: "AdjustRangeValue",
+            payload: {
+              rangeValueDelta: 10,
+              rangeValueDeltaDefault: false,
+            },
           },
         },
       ],
-    };
-    
-    const rangeControllerCapability = {
-      type: "AlexaInterface",
-      interface: "Alexa.RangeController",
-      instance: "Blind.Lift",
-      version: "3",
-      properties: {
-        supported: [
-          {
-            name: "rangeValue",
-          },
-        ],
-        proactivelyReported: false,
-        retrievable: true,
-      },
-      capabilityResources: capabilityResources,
-      configuration: {
-        supportedRange: {
-          minimumValue: 0,
-          maximumValue: 100,
-          precision: 10,
+      stateMappings: [
+        {
+          "@type": "StatesToValue",
+          states: ["Alexa.States.Closed"],
+          value: 0,
         },
-        unitOfMeasure: "Alexa.Unit.Percent",
-      },
-      semantics: {
-        actionMappings: [
-          {
-            "@type": "ActionsToDirective",
-            actions: ["Alexa.Actions.Close"],
-            directive: {
-              name: "SetRangeValue",
-              payload: {
-                rangeValue: 0,
-              },
-            },
+        {
+          "@type": "StatesToRange",
+          states: ["Alexa.States.Open"],
+          range: {
+            minimumValue: 10,
+            maximumValue: 100,
           },
-          {
-            "@type": "ActionsToDirective",
-            actions: ["Alexa.Actions.Open"],
-            directive: {
-              name: "SetRangeValue",
-              payload: {
-                rangeValue: 100,
-              },
-            },
-          },
-          {
-            "@type": "ActionsToDirective",
-            actions: ["Alexa.Actions.Lower"],
-            directive: {
-              name: "AdjustRangeValue",
-              payload: {
-                rangeValueDelta: -10,
-                rangeValueDeltaDefault: false,
-              },
-            },
-          },
-          {
-            "@type": "ActionsToDirective",
-            actions: ["Alexa.Actions.Raise"],
-            directive: {
-              name: "AdjustRangeValue",
-              payload: {
-                rangeValueDelta: 10,
-                rangeValueDeltaDefault: false,
-              },
-            },
-          },
-        ],
-        stateMappings: [
-          {
-            "@type": "StatesToValue",
-            states: ["Alexa.States.Closed"],
-            value: 0,
-          },
-          {
-            "@type": "StatesToRange",
-            states: ["Alexa.States.Open"],
-            range: {
-              minimumValue: 10,
-              maximumValue: 100,
-            },
-          },
-        ],
-      },
-    };
-    
-    const endpointHealthCapability = {
-      type: "AlexaInterface",
-      interface: "Alexa.EndpointHealth",
-      version: "3",
-      properties: {
-        supported: [
-          {
-            name: "connectivity",
-          },
-        ],
-        proactivelyReported: false,
-        retrievable: true,
-      },
-    };
-    
-    const alexaCapability = {
-      type: "AlexaInterface",
-      interface: "Alexa",
-      version: "3",
-    };
-    
+        },
+      ],
+    },
+  };
+
+  const sceneControllerCapability = {
+    type: "AlexaInterface",
+    interface: "Alexa.SceneController",
+    version: "3",
+    supportsDeactivation: false,
+  };
+
+  homeInfo.data.body.homes[0].modules.forEach((module) => {
+    if (!module.velux_type || module.velux_type !== "shutter") return;
+
     const endpoint: Endpoint = {
       endpointId: module.id,
       manufacturerName: "Velux",
-      friendlyName: "Roller Shutter " + module.name,
-      description: "A Velux Roller Shutter",
+      friendlyName: "Rolladen " + module.name,
+      description: "Ein Velux Rolladen",
       displayCategories: ["EXTERIOR_BLIND"],
       additionalAttributes: {
         manufacturer: "Velux",
@@ -400,9 +405,32 @@ const DeviceDiscoveryHandler = async (event: SmartHomeDirective) => {
         alexaCapability,
       ],
     };
-    
+
     endpoints.push(endpoint);
   });
+
+  const baseScene = {
+    manufacturerName: "Velux",
+    displayCategories: ["SCENE_TRIGGER"],
+    cookie: {},
+    capabilities: [sceneControllerCapability, alexaCapability],
+  };
+
+  const openScene: Endpoint = {
+    ...baseScene,
+    endpointId: "open-all-shutters",
+    description: "öffnet alle Velux Rolläden",
+    friendlyName: "Rolläden schließen",
+  };
+
+  const closeScene: Endpoint = {
+    ...baseScene,
+    endpointId: "close-all-shutters",
+    description: "schließt alle Velux Rolläden",
+    friendlyName: "Rolläden öffnen",
+  };
+
+  endpoints.push(openScene, closeScene);
 
   const discoveryResponse: DiscoveryResponse = {
     event: {
@@ -462,11 +490,57 @@ const generateSmartHomeResponse = (status: string) => {
 };
 
 const ReportStateHandler = async (event: SmartHomeDirective) => {
-  const token = event.directive.endpoint?.scope.token!;
+  const token = event.directive.endpoint!.scope.token;
+  const correlationToken = event.directive.header.correlationToken!;
+  const endpointId = event.directive.endpoint!.endpointId;
 
   await shared.warmUpSmartHome(token);
 
   const homeInfo = await shared.getHomeStatusWithRetry();
+  const module = homeInfo.data.body.home.modules.find(
+    (module) => module.id === endpointId
+  );
 
-  return JSON.stringify(homeInfo.data, null, 2);
-}
+  if (module) {
+    const stateReport: StateReport = {
+      event: {
+        header: {
+          namespace: "Alexa",
+          name: "StateReport",
+          messageId: uuidv4(),
+          correlationToken: correlationToken,
+          payloadVersion: "3",
+        },
+        endpoint: {
+          endpointId: endpointId,
+        },
+        payload: {},
+      },
+      context: {
+        properties: [
+          {
+            namespace: "Alexa.RangeController",
+            name: "rangeValue",
+            instance: "Blind.Lift",
+            value: module.current_position!,
+            timeOfSample: new Date(),
+            uncertaintyInMilliseconds: 0
+          },
+          {
+            namespace: "Alexa.EndpointHealth",
+            name: "connectivity",
+            value: {
+              value: module.reachable ? "OK" : "UNREACHABLE"
+            },
+            timeOfSample: new Date(),
+            uncertaintyInMilliseconds: 0
+          }
+        ],
+      },
+    };
+
+    return stateReport;
+  }
+
+  return "";
+};
