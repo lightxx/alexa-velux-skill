@@ -1,163 +1,21 @@
-import { RequestHandler, ErrorHandler, HandlerInput } from "ask-sdk-core";
 import { SkillBuilders } from "ask-sdk";
 
-import random from "random-string-alphanumeric-generator";
 import * as shared from "velux-alexa-integration-shared";
 import { Callback, Context } from "aws-lambda";
 import { RequestEnvelope } from "ask-sdk-model";
 import { SmartHomeDirective } from "./types/SmartHomeDirective.mjs";
-import { Endpoint, DiscoveryResponse } from "./types/discovery-response.mjs";
 
-import { v4 as uuidv4 } from "uuid";
-import { StateReport } from "./types/statereport-response.mjs";
-
-let code: string | null = null;
-
-const SetupEnvironmentIntentHandler: RequestHandler = {
-  canHandle(handlerInput: HandlerInput): boolean {
-    return (
-      handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name ===
-        "SetupEnvironmentIntent"
-    );
-  },
-  async handle(handlerInput: HandlerInput): Promise<any> {
-    try {
-      code = await shared.findKeyByValue(shared.state.storedUserId!);
-      let spokenCode: string = "";
-
-      if (!code) {
-        code = random.randomAlphanumeric(6, "uppercase");
-      }
-
-      for (const c of code) {
-        spokenCode += `<say-as interpret-as='spell-out'>${c}</say-as><break strength='strong'/>`;
-      }
-
-      const spokenURL = `
-        alexa<say-as interpret-as='characters'>.t-h.cc</say-as>.
-      `;
-
-      const speakOutput = `
-        <speak>
-          <p>Willkommen! Bitte die Web App unter ${spokenURL} aufrufen und folgenden Token eingeben:</p>
-          <break strength='strong'/>
-          <p>${spokenCode}.</p>
-          <break strength='strong'/>
-          <p>Um den Token zu wiederholen, sage bitte erneut "Umgebung einrichten"</p>
-        </speak>
-      `;
-
-      await shared.persistUserId(code);
-
-      return handlerInput.responseBuilder.speak(speakOutput).getResponse();
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("Error:", error.message);
-      }
-
-      return handlerInput.responseBuilder
-        .speak("Fehler beim Laden der Konfigurationsdaten!")
-        .getResponse();
-    }
-  },
-};
-
-const LaunchRequestHandler: RequestHandler = {
-  canHandle(handlerInput: HandlerInput): boolean {
-    return handlerInput.requestEnvelope.request.type === "LaunchRequest";
-  },
-  handle(handlerInput: HandlerInput): any {
-    let speakOutput = "Willkommen beim Velux Rolläden Skill!";
-
-    if (!shared.state.userData) {
-      speakOutput +=
-        " Du kannst mich bitten die Rolläden zu öffnen oder zu schließen. Vor der ersten Verwendung sage bitte: Umgebung einrichten.";
-    }
-
-    speakOutput += " Was soll ich tun?";
-
-    return handlerInput.responseBuilder
-      .speak(speakOutput)
-      .reprompt(speakOutput)
-      .getResponse();
-  },
-};
-
-const OpenShuttersIntentHandler: RequestHandler = {
-  canHandle(handlerInput: HandlerInput): boolean {
-    return (
-      handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "OpenShuttersIntent"
-    );
-  },
-  async handle(handlerInput: HandlerInput): Promise<any> {
-    try {
-      await shared.sendScenarioRequestWithRetry("wake_up");
-      const speakOutput = "Die Rolläden werden geöffnet!";
-
-      return handlerInput.responseBuilder.speak(speakOutput).getResponse();
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("API Error: ", error.message);
-      }
-
-      const errorMessage =
-        "Beim Öffnen der Rolläden ist ein Fehler aufgetreten.";
-      return handlerInput.responseBuilder.speak(errorMessage).getResponse();
-    }
-  },
-};
-
-const CloseShuttersIntentHandler: RequestHandler = {
-  canHandle(handlerInput: HandlerInput): boolean {
-    return (
-      handlerInput.requestEnvelope.request.type === "IntentRequest" &&
-      handlerInput.requestEnvelope.request.intent.name === "CloseShuttersIntent"
-    );
-  },
-  async handle(handlerInput: HandlerInput): Promise<any> {
-    try {
-      await shared.sendScenarioRequestWithRetry("bedtime");
-      const speakOutput = "Die Rolläden werden geschlossen!";
-
-      return handlerInput.responseBuilder.speak(speakOutput).getResponse();
-    } catch (error: unknown) {
-      if (error instanceof Error) {
-        console.error("API Error: ", error.message);
-      }
-
-      const errorMessage =
-        "Beim Schließen der Rolläden ist ein Fehler aufgetreten!";
-      return handlerInput.responseBuilder.speak(errorMessage).getResponse();
-    }
-  },
-};
-
-const SkillErrorHandler: ErrorHandler = {
-  canHandle(): boolean {
-    return true;
-  },
-  handle(handlerInput: HandlerInput, error: Error): any {
-    console.error(`Error handled: ${error.message}`);
-
-    return handlerInput.responseBuilder
-      .speak("Leider habe ich keine Ahnung was du von mir willst.")
-      .reprompt("Leider habe ich keine Ahnung was du von mir willst.")
-      .getResponse();
-  },
-};
-
-const UserIdInterceptor = {
-  async process(handlerInput: HandlerInput): Promise<void> {
-    const userId = handlerInput.requestEnvelope.session?.user?.userId;
-    if (userId) {
-      shared.state.storedUserId = userId;
-      await shared.warmUp();
-      console.log("State: " + JSON.stringify(shared.state, null, 2));
-    }
-  },
-};
+import { DeviceDiscoveryHandler } from "./DeviceDiscoveryHandler.mjs";
+import { SetupEnvironmentIntentHandler } from "./CustomSkillIntentHandlers.mjs";
+import { ReportStateHandler } from "./ReportStateHandler.mjs";
+import {
+  OpenShuttersIntentHandler,
+  CloseShuttersIntentHandler,
+  SkillErrorHandler,
+  UserIdInterceptor,
+  LaunchRequestHandler,
+} from "./CustomSkillIntentHandlers.mjs";
+import { generateActivationStartedResponse } from "./generateActivationStartedResponse.mjs";
 
 export const handler = async (
   event: RequestEnvelope | SmartHomeDirective,
@@ -237,218 +95,6 @@ function isSmartHomeDirective(event: any): event is SmartHomeDirective {
   );
 }
 
-const DeviceDiscoveryHandler = async (event: SmartHomeDirective) => {
-  const token = event.directive.payload!.scope!.token;
-
-  await shared.warmUpSmartHome(token);
-
-  let endpoints: Array<Endpoint> = [];
-
-  const homeInfo = await shared.getHomeInfoWithRetry();
-
-  const alexaCapability = {
-    type: "AlexaInterface",
-    interface: "Alexa",
-    version: "3",
-  };
-
-  const endpointHealthCapability = {
-    type: "AlexaInterface",
-    interface: "Alexa.EndpointHealth",
-    version: "3",
-    properties: {
-      supported: [
-        {
-          name: "connectivity",
-        },
-      ],
-      proactivelyReported: false,
-      retrievable: true,
-    },
-  };
-
-  const capabilityResources = {
-    friendlyNames: [
-      {
-        "@type": "asset",
-        value: {
-          assetId: "Alexa.Setting.Opening",
-        },
-      },
-      {
-        "@type": "text",
-        value: {
-          text: "Rolladen",
-          locale: "de-DE",
-        },
-      },
-      {
-        "@type": "asset",
-        value: {
-          assetId: "Alexa.DeviceName.Shade",
-        },
-      },
-    ],
-  };
-
-  const rangeControllerCapability = {
-    type: "AlexaInterface",
-    interface: "Alexa.RangeController",
-    instance: "Blind.Lift",
-    version: "3",
-    properties: {
-      supported: [
-        {
-          name: "rangeValue",
-        },
-      ],
-      proactivelyReported: false,
-      retrievable: true,
-    },
-    capabilityResources: capabilityResources,
-    configuration: {
-      supportedRange: {
-        minimumValue: 0,
-        maximumValue: 100,
-        precision: 10,
-      },
-      unitOfMeasure: "Alexa.Unit.Percent",
-    },
-    semantics: {
-      actionMappings: [
-        {
-          "@type": "ActionsToDirective",
-          actions: ["Alexa.Actions.Close"],
-          directive: {
-            name: "SetRangeValue",
-            payload: {
-              rangeValue: 0,
-            },
-          },
-        },
-        {
-          "@type": "ActionsToDirective",
-          actions: ["Alexa.Actions.Open"],
-          directive: {
-            name: "SetRangeValue",
-            payload: {
-              rangeValue: 100,
-            },
-          },
-        },
-        {
-          "@type": "ActionsToDirective",
-          actions: ["Alexa.Actions.Lower"],
-          directive: {
-            name: "AdjustRangeValue",
-            payload: {
-              rangeValueDelta: -10,
-              rangeValueDeltaDefault: false,
-            },
-          },
-        },
-        {
-          "@type": "ActionsToDirective",
-          actions: ["Alexa.Actions.Raise"],
-          directive: {
-            name: "AdjustRangeValue",
-            payload: {
-              rangeValueDelta: 10,
-              rangeValueDeltaDefault: false,
-            },
-          },
-        },
-      ],
-      stateMappings: [
-        {
-          "@type": "StatesToValue",
-          states: ["Alexa.States.Closed"],
-          value: 0,
-        },
-        {
-          "@type": "StatesToRange",
-          states: ["Alexa.States.Open"],
-          range: {
-            minimumValue: 10,
-            maximumValue: 100,
-          },
-        },
-      ],
-    },
-  };
-
-  const sceneControllerCapability = {
-    type: "AlexaInterface",
-    interface: "Alexa.SceneController",
-    version: "3",
-    supportsDeactivation: false,
-  };
-
-  homeInfo.data.body.homes[0].modules.forEach((module) => {
-    if (!module.velux_type || module.velux_type !== "shutter") return;
-
-    const endpoint: Endpoint = {
-      endpointId: module.id,
-      manufacturerName: "Velux",
-      friendlyName: "Rolladen " + module.name,
-      description: "Ein Velux Rolladen",
-      displayCategories: ["EXTERIOR_BLIND"],
-      additionalAttributes: {
-        manufacturer: "Velux",
-        model: module.type,
-        customIdentifier: module.id,
-      },
-      cookie: {},
-      capabilities: [
-        rangeControllerCapability,
-        endpointHealthCapability,
-        alexaCapability,
-      ],
-    };
-
-    endpoints.push(endpoint);
-  });
-
-  const baseScene = {
-    manufacturerName: "Velux",
-    displayCategories: ["SCENE_TRIGGER"],
-    cookie: {},
-    capabilities: [sceneControllerCapability, alexaCapability],
-  };
-
-  const openScene: Endpoint = {
-    ...baseScene,
-    endpointId: "open-all-shutters",
-    description: "öffnet alle Velux Rolläden",
-    friendlyName: "Rolläden schließen",
-  };
-
-  const closeScene: Endpoint = {
-    ...baseScene,
-    endpointId: "close-all-shutters",
-    description: "schließt alle Velux Rolläden",
-    friendlyName: "Rolläden öffnen",
-  };
-
-  endpoints.push(openScene, closeScene);
-
-  const discoveryResponse: DiscoveryResponse = {
-    event: {
-      header: {
-        namespace: "Alexa.Discovery",
-        name: "Discover.Response",
-        payloadVersion: "3",
-        messageId: uuidv4(),
-      },
-      payload: {
-        endpoints: endpoints,
-      },
-    },
-  };
-
-  return discoveryResponse;
-};
-
 const SmartHomeHandler = async (event: SmartHomeDirective) => {
   if (event.directive.header.namespace === "Alexa.ModeController") {
     const directiveName = event.directive.header.name;
@@ -465,6 +111,21 @@ const SmartHomeHandler = async (event: SmartHomeDirective) => {
           await shared.sendScenarioRequestWithRetry("bedtime");
           return generateSmartHomeResponse("SUCCESS");
         }
+      }
+    }
+  } else if (event.directive.header.namespace === "Alexa.SceneController") {
+    const directiveName = event.directive.header.name;
+    const endpointId = event.directive.endpoint!.endpointId;
+    const token = event.directive.endpoint!.scope.token;
+    const correlationToken = event.directive.header.correlationToken!;
+
+    if (directiveName === "Activate") {
+      if (endpointId === "open-all-shutters") {
+        await shared.sendScenarioRequestWithRetry("wake_up");
+        return generateActivationStartedResponse(correlationToken, token, endpointId);
+      } else if (endpointId === "close-all-shutters") {
+        await shared.sendScenarioRequestWithRetry("bedtime");
+        return generateActivationStartedResponse(correlationToken, token, endpointId);
       }
     }
   }
@@ -489,58 +150,4 @@ const generateSmartHomeResponse = (status: string) => {
   };
 };
 
-const ReportStateHandler = async (event: SmartHomeDirective) => {
-  const token = event.directive.endpoint!.scope.token;
-  const correlationToken = event.directive.header.correlationToken!;
-  const endpointId = event.directive.endpoint!.endpointId;
 
-  await shared.warmUpSmartHome(token);
-
-  const homeInfo = await shared.getHomeStatusWithRetry();
-  const module = homeInfo.data.body.home.modules.find(
-    (module) => module.id === endpointId
-  );
-
-  if (module) {
-    const stateReport: StateReport = {
-      event: {
-        header: {
-          namespace: "Alexa",
-          name: "StateReport",
-          messageId: uuidv4(),
-          correlationToken: correlationToken,
-          payloadVersion: "3",
-        },
-        endpoint: {
-          endpointId: endpointId,
-        },
-        payload: {},
-      },
-      context: {
-        properties: [
-          {
-            namespace: "Alexa.RangeController",
-            name: "rangeValue",
-            instance: "Blind.Lift",
-            value: module.current_position!,
-            timeOfSample: new Date(),
-            uncertaintyInMilliseconds: 0
-          },
-          {
-            namespace: "Alexa.EndpointHealth",
-            name: "connectivity",
-            value: {
-              value: module.reachable ? "OK" : "UNREACHABLE"
-            },
-            timeOfSample: new Date(),
-            uncertaintyInMilliseconds: 0
-          }
-        ],
-      },
-    };
-
-    return stateReport;
-  }
-
-  return "";
-};
